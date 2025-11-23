@@ -515,20 +515,40 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   }
 
   document.addEventListener("DOMContentLoaded", () => {
-    // ✅ NEW: Read user metadata from URL parameters
+    // ✅ Read user metadata from URL parameters OR session storage
     const urlParams = new URLSearchParams(window.location.search);
-    const userMetadata = {
-      signed_in: urlParams.get('signed_in') === 'true',
-      name: urlParams.get('name') || '',
-      email: urlParams.get('email') || '',
-      company: urlParams.get('company') || '',
-      job_title: urlParams.get('job_title') || ''
-    };
+    
+    // Check if we have metadata in session storage first
+    let userMetadata = sessionStorage.getItem('userMetadata');
+    
+    if (userMetadata) {
+      // Use stored metadata
+      userMetadata = JSON.parse(userMetadata);
+      console.log('♻️ Using stored metadata:', userMetadata);
+    } else {
+      // Read from URL and store for future use
+      userMetadata = {
+        signed_in: urlParams.get('signed_in') === 'true',
+        name: urlParams.get('name') || '',
+        email: urlParams.get('email') || '',
+        company: urlParams.get('company') || '',
+        job_title: urlParams.get('job_title') || ''
+      };
+      
+      // Store in session storage (lasts until tab closes)
+      sessionStorage.setItem('userMetadata', JSON.stringify(userMetadata));
+      console.log('👤 New metadata received and stored:', userMetadata);
+      
+      // Now we can clean the URL
+      if (urlParams.has('signed_in')) {
+        const cleanUrl = window.location.origin + window.location.pathname;
+        window.history.replaceState({}, document.title, cleanUrl);
+      }
+    }
 
-    console.log('👤 User metadata received:', userMetadata);
     window.userMetadata = userMetadata;
 
-    // ✅ NEW: Show personalized greeting if user is signed in
+    // ✅ Show personalized greeting if user is signed in
     if (userMetadata.signed_in && userMetadata.name) {
       const greeting = document.querySelector('.div-block-639 p');
       if (greeting) {
@@ -580,7 +600,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       showThinking();
 
       try {
-        // ✅ MODIFIED: Include user metadata in the request
         const response = await fetch(N8N_WEBHOOK, {
           method: "POST",
           headers: {
@@ -590,7 +609,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           body: JSON.stringify({
             message: text,
             sessionId: currentSessionId,
-            metadata: window.userMetadata  // ✅ Added metadata
+            metadata: window.userMetadata
           }),
           mode: "cors"
         });
@@ -720,6 +739,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       newChatBtn.addEventListener("click", () => {
         console.log("🆕 New chat");
         clearSession();
+        sessionStorage.removeItem('userMetadata'); // ✅ Clear stored metadata
         currentSessionId = getSessionId();
         chatCont.innerHTML = "";
         if (topContent) topContent.style.display = "block";
@@ -738,6 +758,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       deleteChatBtn.addEventListener("click", () => {
         console.log("🗑️ Delete chat");
         clearSession();
+        sessionStorage.removeItem('userMetadata'); // ✅ Clear stored metadata
         currentSessionId = getSessionId();
         chatCont.innerHTML = "";
         input.disabled = false;
@@ -746,14 +767,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       });
     }
 
-    // ✅ NEW: Clean URL parameters after processing
-    if (urlParams.has('signed_in')) {
-      const cleanUrl = window.location.origin + window.location.pathname;
-      window.history.replaceState({}, document.title, cleanUrl);
-    }
-
     console.log("✅ Chatbot loaded with session ID:", currentSessionId);
   });
 </script>
+
 
 </body></html>
